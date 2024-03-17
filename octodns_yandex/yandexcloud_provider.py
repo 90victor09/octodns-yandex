@@ -4,7 +4,6 @@ from logging import getLogger
 from octodns import __VERSION__ as octodns_version
 from octodns.idna import idna_encode
 from octodns.provider.base import BaseProvider
-from octodns.record import Record
 
 from octodns_yandex.record import YandexCloudAnameRecord
 from octodns_yandex.mappings import map_rset_to_octodns
@@ -45,19 +44,24 @@ class YandexCloudProvider(BaseProvider):
         YandexCloudAnameRecord._type,
     })
 
+    prioritize_public = None
     auth_kwargs = {}
+    zone_ids_map = dict()
+
     sdk = None
     dns_service = None
 
     def __init__(
         self,
         id,
-        folder_id,
-        auth_type=None,
 
+        folder_id,
+        prioritize_public=None,
+        zone_ids_map=None,
+
+        auth_type=None,
         oauth_token=None,
         iam_token=None,
-
         sa_key_id=None,
         sa_key_account_id=None,
         sa_key_private_key=None,
@@ -68,6 +72,10 @@ class YandexCloudProvider(BaseProvider):
         self.log = getLogger(f'YandexCloudProvider[{id}]')
 
         self.folder_id = folder_id
+        self.prioritize_public = prioritize_public
+
+        if isinstance(zone_ids_map, dict):
+            self.zone_ids_map = zone_ids_map
 
         self.resolve_auth(
             auth_type,
@@ -126,19 +134,42 @@ class YandexCloudProvider(BaseProvider):
             self.auth_kwargs['token'] = process.stdout.decode('utf-8').strip()
 
     def _get_zone_id_by_name(self, zone_name):
+        if zone_name in self.zone_ids_map:
+            self.log.debug("_get_zone_id_by_name: Found zone_name=%s in zone_ids_map", zone_name)
+            return self.zone_ids_map[zone_name]
+
         zone_name = idna_encode(zone_name)
         self.log.debug("_get_zone_id_by_name: name=%s", zone_name)
-        list_zones_resp = self.dns_service.List(ListDnsZonesRequest(
-            folder_id=self.folder_id,
-            # page_size=1,
-            # page_token='',
-            filter=f'zone="{zone_name}"'
-        ))
 
-        if len(list_zones_resp.dns_zones) < 1:
+        # XXX: Will miss public zone if there is more than 1000 equally named internal zones
+        zones = self.dns_service.List(ListDnsZonesRequest(
+            folder_id=self.folder_id,
+            filter=f'zone="{zone_name}"'
+        )).dns_zones
+
+        if len(zones) < 1:
+            self.log.debug("_get_zone_id_by_name: No zones found")
             return None
 
-        return list_zones_resp.dns_zones[0].id
+        if len(zones) > 1 and self.prioritize_public is not None:
+            if self.prioritize_public:
+                public_zone = [e for e in zones if e.HasField('public_visibility')]
+                if len(public_zone) > 0:
+                    zones = public_zone
+                    self.log.info("_get_zone_id_by_name: Using public zone for zone_name=%s", zone_name)
+            else:
+                zones = [e for e in zones if e.HasField('private_visibility')]
+                self.log.info("_get_zone_id_by_name: Searching for internal zones: zone_name=%s",
+                              zone_name)
+
+        zone = zones[0]
+        if len(zones) > 1:
+            self.log.warning("_get_zone_id_by_name: Multiple zones found for zone_name=%s.\n"
+                             "Use 'prioritize_public' provider option to use public zones when present.\n"
+                             "Or use 'zone_ids_map' provider option to specify exact zone ids", zone_name)
+
+        self.log.info("_get_zone_id_by_name: Found zone_id=%s for zone_name=%s", zone.id, zone_name)
+        return zone.id
 
     def populate(self, zone, target=False, lenient=False):
         self.log.debug(

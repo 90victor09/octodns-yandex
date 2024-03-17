@@ -2,7 +2,7 @@
 #
 #
 from .record import YandexCloudAnameRecord
-from .yandex_cloud_provider import YandexCloudProvider
+from .yandexcloud_provider import YandexCloudProvider
 from .version import __VERSION__, __version__
 
 __all__ = [
