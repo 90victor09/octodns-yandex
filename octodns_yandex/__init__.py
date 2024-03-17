@@ -1,13 +1,15 @@
 #
 #
 #
+from .record import YandexCloudAnameRecord
+from .yandex_cloud_provider import YandexCloudProvider
+from .version import __VERSION__, __version__
 
-from octodns.provider.base import BaseProvider
+__all__ = [
+    YandexCloudProvider,
+    YandexCloudAnameRecord
+]
 
-# TODO: remove __VERSION__ with the next major version release
-__version__ = __VERSION__ = '0.0.1'
-
-
-class YandexCloudProvider(BaseProvider):
-    # TODO: implement things
-    pass
+# quell warnings
+__VERSION__
+__version__

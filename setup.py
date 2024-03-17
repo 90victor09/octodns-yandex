@@ -11,7 +11,7 @@ def descriptions():
 
 
 def version():
-    with open('octodns_yandex/__init__.py') as fh:
+    with open('octodns_yandex/version.py') as fh:
         for line in fh:
             if line.startswith('__version__'):
                 return line.split("'")[1]
@@ -49,7 +49,7 @@ setup(
     },
     install_requires=(
         'octodns>=1.0.0',
-        # TODO: other requirements
+        'yandexcloud==0.265.0',
     ),
     license='MIT',
     long_description=long_description,
