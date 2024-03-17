@@ -3,6 +3,10 @@ from typing import Type
 from octodns.record import Record, AliasRecord, CnameRecord, \
     ARecord, AaaaRecord, CaaRecord, NsRecord, PtrRecord, SrvRecord, MxRecord, TxtRecord
 
+from yandex.cloud.dns.v1.dns_zone_pb2 import (
+    RecordSet
+)
+
 from octodns_yandex.record import YandexCloudAnameRecord
 
 
@@ -64,4 +68,15 @@ def map_rset_to_octodns(provider, zone, lenient, rset):
         data=mapper(zone, rset),
         source=provider,
         lenient=lenient
+    )
+
+
+def map_octodns_to_rset(record: Record):
+    values = record.data.get('values', record.data.get('value', []))
+    values = values if isinstance(values, (list, tuple)) else [values]
+    return RecordSet(
+        name=record.fqdn,
+        type=record._type if not isinstance(record, YandexCloudAnameRecord) else "ANAME",
+        ttl=record.ttl,
+        data=[e.rdata_text for e in values]
     )

@@ -6,7 +6,7 @@ from octodns.idna import idna_encode
 from octodns.provider.base import BaseProvider
 
 from octodns_yandex.record import YandexCloudAnameRecord
-from octodns_yandex.mappings import map_rset_to_octodns
+from octodns_yandex.mappings import map_rset_to_octodns, map_octodns_to_rset
 from octodns_yandex.version import __VERSION__ as provider_version
 
 import yandexcloud
@@ -14,6 +14,9 @@ from yandex.cloud.dns.v1.dns_zone_service_pb2_grpc import DnsZoneServiceStub
 from yandex.cloud.dns.v1.dns_zone_service_pb2 import (
     ListDnsZonesRequest,
     ListDnsZoneRecordSetsRequest,
+    UpdateRecordSetsRequest,
+    RecordSetDiff,
+    UpdateRecordSetsMetadata,
 )
 
 AUTH_TYPE_OAUTH = 'OAUTH'
@@ -26,6 +29,8 @@ AUTH_TYPE_YC_CLI = 'YC_CLI'
 class YandexCloudProvider(BaseProvider):
     SUPPORTS_GEO = False
     SUPPORTS_DYNAMIC = False
+    SUPPORTS_MULTIVALUE_PTR = True
+    SUPPORTS_ROOT_NS = True  # Useless?
     SUPPORTS = str({
         'A',
         'AAAA',
@@ -208,5 +213,62 @@ class YandexCloudProvider(BaseProvider):
 
         return True
 
+    def _apply_rset_update(self, zone_id, create, delete):
+        self.log.debug("Applying changes:\n- Create: %s\n- Delete: %s", create, delete)
+
+        operation = self.dns_service.UpdateRecordSets(UpdateRecordSetsRequest(
+            dns_zone_id=zone_id,
+            additions=[map_octodns_to_rset(e.new) for e in create],
+            deletions=[map_octodns_to_rset(e.existing) for e in delete],
+        ))
+        operation_result = self.sdk.wait_operation_and_get_result(
+            operation,
+            response_type=RecordSetDiff,
+            meta_type=UpdateRecordSetsMetadata,
+        )
+        # TODO error handling
+        # a = operation_result.response
+
     def _apply(self, plan):
-        pass
+        desired = plan.desired
+        changes = plan.changes
+
+        zone_name = desired.name
+        existing_zone_id = self._get_zone_id_by_name(zone_name)
+        if existing_zone_id is None:
+            raise Exception()
+
+        zone_id = self._get_zone_id_by_name(zone_name)
+        self.log.debug(
+            '_apply: zone_id=%s, zone_name=%s, len(changes)=%d', zone_id, zone_name, len(changes)
+        )
+
+        delete, create, update = [], [], []
+        update_applied = False
+        for change in changes:
+            if change.new is None:
+                delete.append(change)
+            elif change.existing is None:
+                create.append(change)
+            else:
+                update.append(change)
+
+        CHUNK_SIZE = 1000
+        for i in range(0, max(len(delete), len(create)), CHUNK_SIZE):
+            create_chunk = create[i:i + CHUNK_SIZE]
+            delete_chunk = delete[i:i + CHUNK_SIZE]
+
+            max_len = max(len(create_chunk), len(delete_chunk))
+            if max_len < CHUNK_SIZE and max_len + len(update) <= CHUNK_SIZE:
+                create_chunk += update
+                delete_chunk += update
+                update_applied = True
+            self._apply_rset_update(zone_id, create_chunk, delete_chunk)
+
+        if update_applied:
+            return
+
+        for i in range(0, len(update), CHUNK_SIZE):
+            chunk = update[i:i + CHUNK_SIZE]
+
+            self._apply_rset_update(zone_id, chunk, chunk)
