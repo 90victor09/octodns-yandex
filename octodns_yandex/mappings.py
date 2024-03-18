@@ -1,7 +1,4 @@
-from typing import Type
-
-from octodns.record import Record, AliasRecord, CnameRecord, \
-    ARecord, AaaaRecord, CaaRecord, NsRecord, PtrRecord, SrvRecord, MxRecord, TxtRecord
+from octodns.record import Record
 
 from yandex.cloud.dns.v1.dns_zone_pb2 import (
     RecordSet
@@ -10,62 +7,50 @@ from yandex.cloud.dns.v1.dns_zone_pb2 import (
 from octodns_yandex.record import YandexCloudAnameRecord
 
 
-def map_one(record_type: Type[Record]):
-    def handler(zone, rset):
-        data = {
-            'type': record_type._type,
-            'ttl': rset.ttl,
-            'value': record_type._value_type.parse_rdata_text(rset.data[0]),
-        }
-
-        # name = zone.hostname_from_fqdn(rset.name)
-        # fqdn = rset.name
-        # if 0 < len(record_type.validate(name, fqdn, data)):
-        #     data['octodns'] = {'lenient': True}
-
-        return data
-    return handler
+def _aname_type_map(rset):
+    rset.type = YandexCloudAnameRecord._type
 
 
-def map_multiple(record_type: Type[Record]):
-    def handler(zone, rset):
-        data = {
-            'type': record_type._type,
-            'ttl': rset.ttl,
-            'values': record_type.parse_rdata_texts(rset.data)
-        }
-        # name = zone.hostname_from_fqdn(rset.name)
-        # fqdn = rset.name
-        # if 0 < len(record_type.validate(name, fqdn, data)):
-        #     data['octodns'] = {'lenient': True}
-        return data
-    return handler
+def _txt_unescape(rset):
+    # unescape value because octodns escaping breaks escaped dkim
+    for i, value in enumerate(rset.data):
+        rset.data[i] = value.replace('\\;', ';')
 
-mappings = {
-    'A': map_multiple(ARecord),
-    'AAAA': map_multiple(AaaaRecord),
-    'CAA': map_multiple(CaaRecord),
-    'CNAME': map_one(CnameRecord),  # trailing .
-    'ANAME': map_one(YandexCloudAnameRecord),  # trailing .
-    'MX': map_multiple(MxRecord),  # trailing .
-    'NS': map_multiple(NsRecord),  # trailing .
-    'PTR': map_multiple(PtrRecord),  # trailing .
-    'SRV': map_multiple(SrvRecord),
-    'TXT': map_multiple(TxtRecord),
-    # 'SVCB': ,
-    # 'HTTPS': ,
+
+# Custom transformers for RecordSets from API
+rset_transformers = {
+    'ANAME': _aname_type_map,
+    'TXT': _txt_unescape,
 }
 
 
 def map_rset_to_octodns(provider, zone, lenient, rset):
-    mapper = mappings.get(rset.type, None)
-    if not mapper:
+    rset_transformers.get(rset.type, lambda *args: None)(rset)
+
+    record_type = Record.registered_types().get(rset.type, None)
+    if record_type is None:
         raise Exception('Unsupported record type')
+
+    data = {
+        'type': record_type._type,
+        'ttl': rset.ttl,
+    }
+
+    values = record_type.parse_rdata_texts(rset.data)
+    if len(values) == 1:
+        data['value'] = values[0]
+    else:
+        data['values'] = values
+
+    # name = zone.hostname_from_fqdn(rset.name)
+    # fqdn = rset.name
+    # if 0 < len(record_type.validate(name, fqdn, data)):
+    #     data['octodns'] = {'lenient': True}
 
     return Record.new(
         zone,
         zone.hostname_from_fqdn(rset.name),
-        data=mapper(zone, rset),
+        data=data,
         source=provider,
         lenient=lenient
     )
@@ -74,9 +59,10 @@ def map_rset_to_octodns(provider, zone, lenient, rset):
 def map_octodns_to_rset(record: Record):
     values = record.data.get('values', record.data.get('value', []))
     values = values if isinstance(values, (list, tuple)) else [values]
+
     return RecordSet(
         name=record.fqdn,
-        type=record._type if not isinstance(record, YandexCloudAnameRecord) else "ANAME",
+        type=record._type.split('/')[-1],  # handle custom records
         ttl=record.ttl,
         data=[e.rdata_text for e in values]
     )
