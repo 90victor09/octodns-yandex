@@ -5,10 +5,10 @@ from logging import getLogger
 import grpc
 from octodns import __VERSION__ as octodns_version
 from octodns.idna import idna_decode
+from octodns.provider import ProviderException
 from octodns.provider.base import BaseProvider
 from octodns.record import Record
 
-from octodns_yandex.exceptions import YandexCloudConfigException, YandexCloudException
 from octodns_yandex.record import YandexCloudAnameRecord
 from octodns_yandex.version import __VERSION__ as provider_version
 
@@ -24,6 +24,14 @@ from yandex.cloud.dns.v1.dns_zone_service_pb2 import (
 from yandex.cloud.dns.v1.dns_zone_pb2 import (
     RecordSet,
 )
+
+
+class YandexCloudException(ProviderException):
+    pass
+
+
+class YandexCloudConfigException(YandexCloudException):
+    pass
 
 
 def _aname_type_map(rset):
@@ -279,13 +287,12 @@ class YandexCloudProvider(BaseProvider):
                 done = True
 
             for rset in resp.record_sets:
-                if rset.type not in self.SUPPORTS:
+                if rset.type not in self.SUPPORTS | {'ANAME'}:
                     continue
                 record = map_rset_to_octodns(self, zone, lenient, rset)
                 zone.add_record(record, lenient=lenient)
 
         self.log.info('populate: found %s records', len(zone.records) - before)
-
         return True
 
     def _apply_rset_update(self, zone_id, create, delete):
