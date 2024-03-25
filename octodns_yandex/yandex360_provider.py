@@ -1,14 +1,34 @@
+import functools
 import itertools
-from collections import defaultdict
 from logging import getLogger
 
 import requests
 from octodns import __VERSION__ as octodns_version
 from octodns.idna import idna_encode
+from octodns.provider import ProviderException
 from octodns.provider.base import BaseProvider
-from octodns.record import Record
+from octodns.record import Record, Delete, Create
 
 from octodns_yandex.version import __VERSION__ as provider_version
+
+
+class Yandex360Exception(ProviderException):
+    pass
+
+
+class Yandex360ApiException(ProviderException):
+    def __init__(self, resp):
+        super(Yandex360ApiException, self).__init__(
+            f"Error code: {resp.status_code}, body: {resp.text}"
+        )
+
+
+def _octodns_name(name):
+    return name if name != '@' else ''
+
+
+def _ya360_name(name):
+    return name if name != '' else '@'
 
 
 def map_entries_to_records(provider, zone, lenient, entries):
@@ -20,50 +40,50 @@ def map_entries_to_records(provider, zone, lenient, entries):
     for k, entry_group in itertools.groupby(entries, _keyfunc):
         name, type = k
         entry_group = list(entry_group)
+
         record_type = Record.registered_types().get(type, None)
-
         if record_type is None:
-            raise Exception(f"Unknown record type: {type}")
+            raise Yandex360Exception(f"Unknown record type: {type}")
 
-        data = {
-            'type': type,
-            'ttl': entry_group[0]['ttl'],  # We don't really can determine TTL
-        }
+        # A little helper to construct lists with singular octodns record values
+        def make_value(*args, **kwargs):
+            value_type = record_type._value_type
+            return [value_type(kwargs) if kwargs else value_type(*args)]
 
-        value_type = record_type._value_type
         values = []
         for entry in entry_group:
             if type in {'A', 'AAAA', }:
-                values.append(value_type(entry['address']))
+                values += make_value(entry['address'])
             elif type in {'CNAME', 'NS', }:
-                values.append(value_type(entry['target']))
+                values += make_value(entry['target'])
             elif type == 'TXT':
                 # Hard escape to meet octodns requirements. We will unescape on apply
-                values.append(value_type(entry['text'].replace(';', '\\;')))
+                values += make_value(entry['text'].replace(';', '\\;'))
             elif type == 'MX':
-                values.append(
-                    value_type({
-                        'preference': int(entry['preference']),
-                        'exchange': entry['exchange'],
-                    })
+                values += make_value(
+                    preference=int(entry['preference']),
+                    exchange=entry['exchange'],
                 )
             elif type == 'SRV':
-                values.append(
-                    value_type({
-                        'priority': int(entry['priority']),
-                        'weight': int(entry['weight']),
-                        'port': int(entry['port']),
-                        'target': entry['target'],
-                    })
+                values += make_value(
+                    priority=int(entry['priority']),
+                    weight=int(entry['weight']),
+                    port=int(entry['port']),
+                    target=entry['target'],
                 )
             elif type == 'CAA':
-                values.append(
-                    value_type({
-                        'flags': int(entry['flag']),
-                        'tag': entry['tag'],
-                        'value': entry['value'],
-                    })
+                values += make_value(
+                    flags=int(entry['flag']),
+                    tag=entry['tag'],
+                    value=entry['value'],
                 )
+            else:
+                raise Yandex360Exception(f"Unknown record type: {type}")
+
+        data = {
+            'type': type,
+            'ttl': entry_group[0]['ttl'],  # We can't really determine unified TTL
+        }
         if len(values) == 1:
             data['value'] = values[0]
         else:
@@ -72,7 +92,7 @@ def map_entries_to_records(provider, zone, lenient, entries):
         records.append(
             Record.new(
                 zone,
-                name if name != '@' else '',
+                _octodns_name(name),
                 data=data,
                 source=provider,
                 lenient=lenient
@@ -85,54 +105,64 @@ def map_entries_to_records(provider, zone, lenient, entries):
 def map_record_to_entries(zone, record: Record):
     type = record._type
     name = zone.hostname_from_fqdn(record.name)
-    base_data = {
-        'name': name if name else '@',
-        'type': type,
-        'ttl': int(record.ttl),
-    }
-    entries = []
 
     values = record.data.get('values', record.data.get('value', []))
     values = values if isinstance(values, (list, tuple)) else [values]
+
+    # A little helper to construct lists with singular entries which have similar fields
+    make_entry = functools.partial(
+        lambda **kwargs: [dict(**kwargs)],
+        name=_ya360_name(name),
+        type=type,
+        ttl=int(record.ttl),
+    )
+
+    entries = []
     for value in values:
         if type in {'A', 'AAAA', }:
-            entries.append({**base_data, 'address': value})
+            entries += make_entry(address=value)
         elif type in {'CNAME', 'NS', }:
-            entries.append({**base_data, 'target': value})
+            entries += make_entry(target=value)
         elif type == 'TXT':
             # NOTE: Yandex 360 is escaping semicolons properly
             # XXX: Yandex 360 is doubling backslashes
-            entries.append({**base_data, 'text': value.replace('\\;', ';').replace('\\\\', '\\')})
+            entries += make_entry(
+                text=value.replace('\\;', ';').replace('\\\\', '\\')
+            )
         elif type == 'MX':
-            entries.append({
-                **base_data,
-                'preference': int(value.preference),
-                'exchange': value.exchange,
-            })
+            entries += make_entry(
+                preference=int(value.preference),
+                exchange=value.exchange,
+            )
         elif type == 'SRV':
-            entries.append({
-                **base_data,
-                'priority': int(value.priority),
-                'weight': int(value.weight),
-                'port': int(value.port),
-                'target': value.target,
-            })
-        elif type == 'CAA':  # no update?
-            entries.append({
-                **base_data,
-                'flag': int(value.flags),
-                'tag': value.tag,
-                'value': value.value,  # wrap with ""?
-            })
+            entries += make_entry(
+                priority=int(value.priority),
+                weight=int(value.weight),
+                port=int(value.port),
+                target=value.target,
+            )
+        elif type == 'CAA':
+            entries += make_entry(
+                flag=int(value.flags),
+                tag=value.tag,
+                value=value.value,
+            )
         else:
-            raise Exception()
+            raise Yandex360Exception(f"Unknown record type: {type}")
+
     return entries
+
+
+# API reference:
+#  https://yandex.ru/dev/api360/doc/ref/OrganizationsService/OrganizationsService_List.html
+#  https://yandex.ru/dev/api360/doc/ref/DomainService/DomainService_List.html
+#  https://yandex.ru/dev/api360/doc/ref/DomainDNSService.html
 
 
 class Yandex360Provider(BaseProvider):
     SUPPORTS_GEO = False
     SUPPORTS_DYNAMIC = False
-    SUPPORTS = str({
+    SUPPORTS = {
         'A',
         'AAAA',
         'CNAME',
@@ -141,7 +171,7 @@ class Yandex360Provider(BaseProvider):
         'SRV',
         'NS',
         'CAA',
-    })
+    }
 
     TIMEOUT = 15
     API_BASE = 'https://api360.yandex.net'
@@ -173,7 +203,7 @@ class Yandex360Provider(BaseProvider):
     def make_request(self, method, url, data=None, params=None, expected_code=200):
         resp = self._session.request(method, f"{self.API_BASE}{url}", params=params, json=data, timeout=self.TIMEOUT)
         if resp.status_code != expected_code:
-            raise Exception()
+            raise Yandex360ApiException(resp)
         return resp.json()
 
     def list_orgs(self, page_token=None):
@@ -279,35 +309,38 @@ class Yandex360Provider(BaseProvider):
         domain_name = idna_encode(zone.name).rstrip('.')
         org_id = self.find_org_id_for_domain(domain_name)
         if org_id is None:
-            raise Exception("Zone not found")
+            raise Yandex360Exception("Zone not found")
 
         self.log.debug(
             '_apply: org_id=%s, domain_name=%s, len(changes)=%d', org_id, domain_name, len(changes)
         )
 
         delete, create, update = [], [], []
-        records_to_search = defaultdict(dict)
+        records_to_search = {}
         for change in changes:
             if change.existing is None:
                 create.append(change)
             else:
-                records_to_search[change.existing._type][zone.hostname_from_fqdn(change.existing.name)] = []
+                records_to_search[(change.existing._type, _ya360_name(change.existing.name))] = []
                 if change.new is None:
                     delete.append(change)
+                elif change.existing._type == 'CAA':  # XXX: CAA update is broken
+                    delete.append(Delete(change.existing))
+                    create.append(Create(change.existing))
                 else:
                     update.append(change)
 
         # Search for record_ids by (type, name) tuples
         entries = self.collect_zone_entries(org_id, domain_name)
         for entry in entries:
-            e = records_to_search[entry['type']].get(entry['name'], None)
+            e = records_to_search.get((entry['type'], entry['name']), None)
             if e is None:
                 continue
-            records_to_search[entry['type']][entry['name']].append(entry['recordId'])
+            records_to_search[(entry['type'], entry['name'])].append(entry['recordId'])
 
         # Delete found records
         for change in delete:
-            for record_id in records_to_search[change.existing._type][zone.hostname_from_fqdn(change.existing.name)]:
+            for record_id in records_to_search.get((change.existing._type, _ya360_name(change.existing.name)), []):
                 self.delete_dns_record(org_id, domain_name, record_id)
 
         # Create new records
@@ -317,7 +350,7 @@ class Yandex360Provider(BaseProvider):
 
         # Apply changes: update (if possible) or create/delete
         for change in update:
-            it = iter(records_to_search[change.existing._type][zone.hostname_from_fqdn(change.existing.name)])
+            it = iter(records_to_search.get((change.existing._type, _ya360_name(change.existing.name)), []))
 
             # Update entries while there is some or create new ones
             for entry in map_record_to_entries(zone, change.new):

@@ -9,7 +9,6 @@ import grpc
 
 import pytest
 import yandexcloud
-from _pytest.monkeypatch import MonkeyPatch
 from octodns.idna import idna_decode
 from octodns.provider.plan import Plan
 from octodns.record import Delete, Create, Update
@@ -143,31 +142,31 @@ class TestYandexCloudProvider:
             with pytest.raises(YandexCloudConfigException, match=r".*sa_key.*fields.*"):
                 self._get_auth_kwargs(AUTH_TYPE_SA_KEY, sa_key=STUB_SA_KEY)
 
-        def test_auth_cli(self):
-            with MonkeyPatch.context() as m:
-                def _not_found(*args, **kwargs):
-                    raise FileNotFoundError()
+        def test_auth_cli(self, monkeypatch):
+            def _not_found(*args, **kwargs):
+                raise FileNotFoundError()
 
-                m.setattr(subprocess, "run", lambda *args, **kwargs: self.ProcessMock(stdout=STUB_TOKEN.encode('utf-8')))
-                auth_kwargs = self._get_auth_kwargs(AUTH_TYPE_YC_CLI)
-                assert auth_kwargs.keys() == {'token'}
-                assert auth_kwargs['token'] == STUB_TOKEN
-                m.undo()
+            monkeypatch.setattr(subprocess, "run",
+                                lambda *args, **kwargs: self.ProcessMock(stdout=STUB_TOKEN.encode('utf-8')))
+            auth_kwargs = self._get_auth_kwargs(AUTH_TYPE_YC_CLI)
+            assert auth_kwargs.keys() == {'token'}
+            assert auth_kwargs['token'] == STUB_TOKEN
+            monkeypatch.undo()
 
-                m.setattr(subprocess, "run", _not_found)
-                with pytest.raises(YandexCloudConfigException):
-                    self._get_auth_kwargs(AUTH_TYPE_YC_CLI)
-                m.undo()
+            monkeypatch.setattr(subprocess, "run", _not_found)
+            with pytest.raises(YandexCloudConfigException):
+                self._get_auth_kwargs(AUTH_TYPE_YC_CLI)
+            monkeypatch.undo()
 
-                m.setattr(subprocess, "run", lambda *args, **kwargs: self.ProcessMock(check_error=True))
-                with pytest.raises(YandexCloudConfigException):
-                    self._get_auth_kwargs(AUTH_TYPE_YC_CLI)
-                m.undo()
+            monkeypatch.setattr(subprocess, "run",
+                                lambda *args, **kwargs: self.ProcessMock(check_error=True))
+            with pytest.raises(YandexCloudConfigException):
+                self._get_auth_kwargs(AUTH_TYPE_YC_CLI)
+            monkeypatch.undo()
 
             # Unknown auth type
             with pytest.raises(YandexCloudConfigException):
                 self._get_auth_kwargs('non_existent_type')
-
 
     class TestFindZone:
         def test_find_zone_found_one(self, monkeypatch, provider):
@@ -235,6 +234,7 @@ class TestYandexCloudProvider:
             zone = Zone(STUB_ZONE_NAME, [])
             for type in YandexCloudProvider.SUPPORTS:
                 rset = STUB_RECORDS[type.split('/')[-1]]
+                # Make rset copy because of ANAME handling
                 record = map_rset_to_octodns(None, zone, False, rset.__deepcopy__())
 
                 recovered_rset = map_octodns_to_rset(record)
@@ -304,7 +304,6 @@ class TestYandexCloudProvider:
             b = provider_with_zone.populate(zone, lenient=True)
             assert b
             assert len(zone.records) == len(STUB_RECORDS) - 1  # without SOA
-
 
     class TestApply:
         @staticmethod

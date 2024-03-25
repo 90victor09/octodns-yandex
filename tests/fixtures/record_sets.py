@@ -6,6 +6,7 @@ from yandex.cloud.dns.v1.dns_zone_service_pb2 import (
     ListDnsZoneRecordSetsResponse
 )
 
+# Value which key equals DNS record type should not be lenient
 STUB_RECORDS = {
     'A': RecordSet(
         name="a.example.com.",
