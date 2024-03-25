@@ -1,10 +1,8 @@
-
-from google.protobuf.timestamp_pb2 import (
-    Timestamp
-)
-
+from google.protobuf.timestamp_pb2 import Timestamp
 from yandex.cloud.dns.v1.dns_zone_pb2 import (
-    DnsZone, PrivateVisibility, PublicVisibility
+    DnsZone,
+    PrivateVisibility,
+    PublicVisibility,
 )
 
 STUB_ZONE_NAME = "example.com."
@@ -18,9 +16,7 @@ STUB_ZONE_1 = DnsZone(
     created_at=Timestamp(seconds=1710685039, nanos=779000000),
     name="test2",
     zone=STUB_ZONE_NAME,
-    private_visibility=PrivateVisibility(
-        network_ids=[STUB_NETWORK_ID]
-    )
+    private_visibility=PrivateVisibility(network_ids=[STUB_NETWORK_ID]),
 )
 
 STUB_ZONE_2 = DnsZone(
@@ -29,7 +25,7 @@ STUB_ZONE_2 = DnsZone(
     created_at=Timestamp(seconds=1710685015, nanos=601000000),
     name="test",
     zone=STUB_ZONE_NAME,
-    private_visibility=PrivateVisibility()
+    private_visibility=PrivateVisibility(),
 )
 
 STUB_ZONE_PUBLIC = DnsZone(
@@ -38,7 +34,7 @@ STUB_ZONE_PUBLIC = DnsZone(
     created_at=Timestamp(seconds=1710325719, nanos=138000000),
     name="example-com",
     zone=STUB_ZONE_NAME,
-    public_visibility=PublicVisibility()
+    public_visibility=PublicVisibility(),
 )
 
 
@@ -51,5 +47,5 @@ STUB_IDNA_ZONE = DnsZone(
     name="idna-test",
     description="An idna test",
     zone=STUB_IDNA_ZONE_NAME,
-    private_visibility=PrivateVisibility()
+    private_visibility=PrivateVisibility(),
 )

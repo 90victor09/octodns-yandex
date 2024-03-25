@@ -3,6 +3,17 @@ import subprocess
 from logging import getLogger
 
 import grpc
+import yandexcloud
+from yandex.cloud.dns.v1.dns_zone_pb2 import RecordSet
+from yandex.cloud.dns.v1.dns_zone_service_pb2 import (
+    ListDnsZoneRecordSetsRequest,
+    ListDnsZonesRequest,
+    RecordSetDiff,
+    UpdateRecordSetsMetadata,
+    UpdateRecordSetsRequest,
+)
+from yandex.cloud.dns.v1.dns_zone_service_pb2_grpc import DnsZoneServiceStub
+
 from octodns import __VERSION__ as octodns_version
 from octodns.idna import idna_decode
 from octodns.provider import ProviderException
@@ -11,19 +22,6 @@ from octodns.record import Record
 
 from octodns_yandex.record import YandexCloudAnameRecord
 from octodns_yandex.version import __VERSION__ as provider_version
-
-import yandexcloud
-from yandex.cloud.dns.v1.dns_zone_service_pb2_grpc import DnsZoneServiceStub
-from yandex.cloud.dns.v1.dns_zone_service_pb2 import (
-    ListDnsZonesRequest,
-    ListDnsZoneRecordSetsRequest,
-    UpdateRecordSetsRequest,
-    RecordSetDiff,
-    UpdateRecordSetsMetadata,
-)
-from yandex.cloud.dns.v1.dns_zone_pb2 import (
-    RecordSet,
-)
 
 
 class YandexCloudException(ProviderException):
@@ -44,8 +42,8 @@ def _txt_unescape(rset):
         rset.data[i] = value.replace('\\;', ';')
 
 
-# Custom transformers for RecordSets from API
 rset_transformers = {
+    # Custom transformers for RecordSets from API
     'ANAME': _aname_type_map,
     'TXT': _txt_unescape,
 }
@@ -58,10 +56,7 @@ def map_rset_to_octodns(provider, zone, lenient, rset):
     if record_type is None:
         raise YandexCloudException(f"Unknown record type: {rset.type}")
 
-    data = {
-        'type': record_type._type,
-        'ttl': rset.ttl,
-    }
+    data = {'type': record_type._type, 'ttl': rset.ttl}
 
     values = record_type.parse_rdata_texts(rset.data)
     if len(values) == 1:
@@ -79,7 +74,7 @@ def map_rset_to_octodns(provider, zone, lenient, rset):
         zone.hostname_from_fqdn(rset.name),
         data=data,
         source=provider,
-        lenient=lenient
+        lenient=lenient,
     )
 
 
@@ -91,7 +86,7 @@ def map_octodns_to_rset(record: Record):
         name=record.fqdn,
         type=record._type.split('/')[-1],  # handle custom records
         ttl=record.ttl,
-        data=[e.rdata_text for e in values]
+        data=[e.rdata_text for e in values],
     )
 
 
@@ -120,7 +115,6 @@ class YandexCloudProvider(BaseProvider):
         # 'SVCB',
         # 'HTTPS',
         'TXT',
-
         YandexCloudAnameRecord._type,
     }
 
@@ -136,19 +130,16 @@ class YandexCloudProvider(BaseProvider):
     def __init__(
         self,
         id: str,
-
         folder_id: str,
         auth_type: str,
         prioritize_public=None,
         zone_ids_map=None,
-
         oauth_token=None,
         iam_token=None,
         sa_key_file=None,
         sa_key=None,
-
         *args,
-        **kwargs
+        **kwargs,
     ):
         self.log = getLogger(f"YandexCloudProvider[{id}]")
 
@@ -159,32 +150,25 @@ class YandexCloudProvider(BaseProvider):
             self.zone_ids_map = zone_ids_map
 
         self.auth_kwargs = self.get_auth_kwargs(
-            auth_type,
-            oauth_token,
-            iam_token,
-            sa_key_file,
-            sa_key,
+            auth_type, oauth_token, iam_token, sa_key_file, sa_key
         )
-        self.log.debug('__init__: folder_id=%s auth_type=%s auth_kwargs=%s', self.folder_id, auth_type, self.auth_kwargs)
+        self.log.debug(
+            '__init__: folder_id=%s auth_type=%s auth_kwargs=%s',
+            self.folder_id,
+            auth_type,
+            self.auth_kwargs,
+        )
 
         super().__init__(id, *args, **kwargs)
 
         self.sdk = yandexcloud.SDK(
             user_agent=f"octodns/{octodns_version} octodns-yandex/{provider_version}",
-            **self.auth_kwargs
+            **self.auth_kwargs,
         )
         self.dns_service = self.sdk.client(DnsZoneServiceStub)
 
     @staticmethod
-    def get_auth_kwargs(
-        auth_type,
-
-        oauth_token,
-        iam_token,
-
-        sa_key_file,
-        sa_key,
-    ):
+    def get_auth_kwargs(auth_type, oauth_token, iam_token, sa_key_file, sa_key):
         if auth_type == AUTH_TYPE_OAUTH:
             return {'token': oauth_token}
         elif auth_type == AUTH_TYPE_IAM:
@@ -197,11 +181,15 @@ class YandexCloudProvider(BaseProvider):
                     with open(sa_key_file) as infile:
                         sa_key = json.load(infile)
                 except OSError as e:
-                    raise YandexCloudConfigException(f"Failed to open 'sa_key_file': {sa_key_file}") from e
-            if sa_key is None or \
-                    'id' not in sa_key or \
-                    'service_account_id' not in sa_key or \
-                    'private_key' not in sa_key:
+                    raise YandexCloudConfigException(
+                        f"Failed to open 'sa_key_file': {sa_key_file}"
+                    ) from e
+            if (
+                sa_key is None
+                or 'id' not in sa_key
+                or 'service_account_id' not in sa_key
+                or 'private_key' not in sa_key
+            ):
                 raise YandexCloudConfigException(
                     "Provider option 'sa_key' should be dict with fields: id, service_account_id, private_key"
                 )
@@ -209,12 +197,18 @@ class YandexCloudProvider(BaseProvider):
         elif auth_type == AUTH_TYPE_YC_CLI:
             process = None
             try:
-                process = subprocess.run(['yc', 'config', 'get', 'token'], stdout=subprocess.PIPE)
+                process = subprocess.run(
+                    ['yc', 'config', 'get', 'token'], stdout=subprocess.PIPE
+                )
                 process.check_returncode()
             except FileNotFoundError as e:
-                raise YandexCloudConfigException('yc binary not found in PATH') from e
+                raise YandexCloudConfigException(
+                    'yc binary not found in PATH'
+                ) from e
             except subprocess.CalledProcessError as e:
-                raise YandexCloudConfigException(f"Failed to get token from yc, exit code: {process.returncode}") from e
+                raise YandexCloudConfigException(
+                    f"Failed to get token from yc, exit code: {process.returncode}"
+                ) from e
 
             return {'token': process.stdout.decode('utf-8').strip()}
         else:
@@ -222,18 +216,24 @@ class YandexCloudProvider(BaseProvider):
 
     def get_zone_id_by_name(self, zone_name):
         decoded_name = idna_decode(zone_name)
-        mapped_id = self.zone_ids_map.get(decoded_name, self.zone_ids_map.get(zone_name, None))
+        mapped_id = self.zone_ids_map.get(
+            decoded_name, self.zone_ids_map.get(zone_name, None)
+        )
         if mapped_id is not None:
-            self.log.debug('get_zone_id_by_name: Found zone_name=%s in zone_ids_map', zone_name)
+            self.log.debug(
+                'get_zone_id_by_name: Found zone_name=%s in zone_ids_map',
+                zone_name,
+            )
             return mapped_id
 
         self.log.debug('get_zone_id_by_name: name=%s', decoded_name)
 
         # XXX: Will miss public zone if there is more than 1000 equally named internal zones
-        zones = self.dns_service.List(ListDnsZonesRequest(
-            folder_id=self.folder_id,
-            filter=f'zone="{zone_name}"'
-        )).dns_zones
+        zones = self.dns_service.List(
+            ListDnsZonesRequest(
+                folder_id=self.folder_id, filter=f'zone="{zone_name}"'
+            )
+        ).dns_zones
 
         if len(zones) < 1:
             self.log.debug('get_zone_id_by_name: No zones found')
@@ -241,22 +241,36 @@ class YandexCloudProvider(BaseProvider):
 
         if len(zones) > 1 and self.prioritize_public is not None:
             if self.prioritize_public:
-                public_zone = [e for e in zones if e.HasField('public_visibility')]
+                public_zone = [
+                    e for e in zones if e.HasField('public_visibility')
+                ]
                 if len(public_zone) > 0:
                     zones = public_zone
-                    self.log.info('get_zone_id_by_name: Using public zone for zone_name=%s', zone_name)
+                    self.log.info(
+                        'get_zone_id_by_name: Using public zone for zone_name=%s',
+                        zone_name,
+                    )
             else:
                 zones = [e for e in zones if e.HasField('private_visibility')]
-                self.log.info('get_zone_id_by_name: Searching for internal zones: zone_name=%s',
-                              zone_name)
+                self.log.info(
+                    'get_zone_id_by_name: Searching for internal zones: zone_name=%s',
+                    zone_name,
+                )
 
         if len(zones) > 1:
-            self.log.warning("get_zone_id_by_name: Multiple zones found for zone_name=%s.\n"
-                             "Use 'prioritize_public' provider option to use public zones when present.\n"
-                             "Or use 'zone_ids_map' provider option to specify exact zone ids", zone_name)
+            self.log.warning(
+                "get_zone_id_by_name: Multiple zones found for zone_name=%s.\n"
+                "Use 'prioritize_public' provider option to use public zones when present.\n"
+                "Or use 'zone_ids_map' provider option to specify exact zone ids",
+                zone_name,
+            )
 
         zone = zones[0]
-        self.log.info('get_zone_id_by_name: Found zone_id=%s for zone_name=%s', zone.id, zone_name)
+        self.log.info(
+            'get_zone_id_by_name: Found zone_id=%s for zone_name=%s',
+            zone.id,
+            zone_name,
+        )
         return zone.id
 
     def populate(self, zone, target=False, lenient=False):
@@ -276,10 +290,11 @@ class YandexCloudProvider(BaseProvider):
         done = False
         page_token = None
         while not done:
-            resp = self.dns_service.ListRecordSets(ListDnsZoneRecordSetsRequest(
-                dns_zone_id=zone_id,
-                page_token=page_token,
-            ))
+            resp = self.dns_service.ListRecordSets(
+                ListDnsZoneRecordSetsRequest(
+                    dns_zone_id=zone_id, page_token=page_token
+                )
+            )
 
             if resp.next_page_token:
                 page_token = resp.next_page_token
@@ -296,14 +311,18 @@ class YandexCloudProvider(BaseProvider):
         return True
 
     def _apply_rset_update(self, zone_id, create, delete):
-        self.log.debug('Applying changes:\n- Create: %s\n- Delete: %s', create, delete)
+        self.log.debug(
+            'Applying changes:\n- Create: %s\n- Delete: %s', create, delete
+        )
 
         try:
-            operation = self.dns_service.UpdateRecordSets(UpdateRecordSetsRequest(
-                dns_zone_id=zone_id,
-                additions=[map_octodns_to_rset(e.new) for e in create],
-                deletions=[map_octodns_to_rset(e.existing) for e in delete],
-            ))
+            operation = self.dns_service.UpdateRecordSets(
+                UpdateRecordSetsRequest(
+                    dns_zone_id=zone_id,
+                    additions=[map_octodns_to_rset(e.new) for e in create],
+                    deletions=[map_octodns_to_rset(e.existing) for e in delete],
+                )
+            )
             self.sdk.wait_operation_and_get_result(
                 operation,
                 response_type=RecordSetDiff,
@@ -311,7 +330,9 @@ class YandexCloudProvider(BaseProvider):
             )
         except grpc.RpcError as e:
             state = e.args[0]
-            raise YandexCloudException(f"API error: code={state.code}, details={state.details}") from e
+            raise YandexCloudException(
+                f"API error: code={state.code}, details={state.details}"
+            ) from e
 
     def _apply(self, plan):
         zone_name = plan.desired.name
@@ -319,10 +340,15 @@ class YandexCloudProvider(BaseProvider):
 
         zone_id = self.get_zone_id_by_name(zone_name)
         if zone_id is None:
-            raise YandexCloudException('Zone not found (zone creation is not supported)')
+            raise YandexCloudException(
+                'Zone not found (zone creation is not supported)'
+            )
 
         self.log.debug(
-            '_apply: zone_id=%s, zone_name=%s, len(changes)=%d', zone_id, zone_name, len(changes)
+            '_apply: zone_id=%s, zone_name=%s, len(changes)=%d',
+            zone_id,
+            zone_name,
+            len(changes),
         )
 
         delete, create, update = [], [], []
@@ -336,12 +362,17 @@ class YandexCloudProvider(BaseProvider):
 
         # Try to process create & delete operations simultaneous in batches
         # Also, if there is enough free space in batch for all updates, then add them
-        for i in range(0, max(len(delete), len(create)), self.UPDATE_CHUNK_SIZE):
-            create_chunk = create[i:i + self.UPDATE_CHUNK_SIZE]
-            delete_chunk = delete[i:i + self.UPDATE_CHUNK_SIZE]
+        for i in range(
+            0, max(len(delete), len(create)), self.UPDATE_CHUNK_SIZE
+        ):
+            create_chunk = create[i : i + self.UPDATE_CHUNK_SIZE]
+            delete_chunk = delete[i : i + self.UPDATE_CHUNK_SIZE]
 
             max_len = max(len(create_chunk), len(delete_chunk))
-            if max_len < self.UPDATE_CHUNK_SIZE and max_len + len(update) <= self.UPDATE_CHUNK_SIZE:
+            if (
+                max_len < self.UPDATE_CHUNK_SIZE
+                and max_len + len(update) <= self.UPDATE_CHUNK_SIZE
+            ):
                 create_chunk += update
                 delete_chunk += update
                 update = []
@@ -350,6 +381,6 @@ class YandexCloudProvider(BaseProvider):
         # Process updates separately (if it was not done before)
         # API guarantees that deletions processed before additions
         for i in range(0, len(update), self.UPDATE_CHUNK_SIZE):
-            chunk = update[i:i + self.UPDATE_CHUNK_SIZE]
+            chunk = update[i : i + self.UPDATE_CHUNK_SIZE]
 
             self._apply_rset_update(zone_id, chunk, chunk)

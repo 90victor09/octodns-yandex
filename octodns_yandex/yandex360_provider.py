@@ -3,11 +3,12 @@ import itertools
 from logging import getLogger
 
 import requests
+
 from octodns import __VERSION__ as octodns_version
 from octodns.idna import idna_encode
 from octodns.provider import ProviderException
 from octodns.provider.base import BaseProvider
-from octodns.record import Record, Delete, Create
+from octodns.record import Create, Delete, Record
 
 from octodns_yandex.version import __VERSION__ as provider_version
 
@@ -33,7 +34,7 @@ def _ya360_name(name):
 
 def map_entries_to_records(provider, zone, lenient, entries):
     def _keyfunc(x):
-        return x['name'], x['type'],
+        return x['name'], x['type']
 
     records = []
     entries = sorted(entries, key=_keyfunc)
@@ -52,9 +53,9 @@ def map_entries_to_records(provider, zone, lenient, entries):
 
         values = []
         for entry in entry_group:
-            if type in {'A', 'AAAA', }:
+            if type in {'A', 'AAAA'}:
                 values += make_value(entry['address'])
-            elif type in {'CNAME', 'NS', }:
+            elif type in {'CNAME', 'NS'}:
                 values += make_value(entry['target'])
             elif type == 'TXT':
                 # Hard escape to meet octodns requirements. We will unescape on apply
@@ -82,7 +83,8 @@ def map_entries_to_records(provider, zone, lenient, entries):
 
         data = {
             'type': type,
-            'ttl': entry_group[0]['ttl'],  # We can't really determine unified TTL
+            # We can't really determine unified TTL
+            'ttl': entry_group[0]['ttl'],
         }
         if len(values) == 1:
             data['value'] = values[0]
@@ -95,7 +97,7 @@ def map_entries_to_records(provider, zone, lenient, entries):
                 _octodns_name(name),
                 data=data,
                 source=provider,
-                lenient=lenient
+                lenient=lenient,
             )
         )
 
@@ -119,9 +121,9 @@ def map_record_to_entries(zone, record: Record):
 
     entries = []
     for value in values:
-        if type in {'A', 'AAAA', }:
+        if type in {'A', 'AAAA'}:
             entries += make_entry(address=value)
-        elif type in {'CNAME', 'NS', }:
+        elif type in {'CNAME', 'NS'}:
             entries += make_entry(target=value)
         elif type == 'TXT':
             # NOTE: Yandex 360 is escaping semicolons properly
@@ -131,8 +133,7 @@ def map_record_to_entries(zone, record: Record):
             )
         elif type == 'MX':
             entries += make_entry(
-                preference=int(value.preference),
-                exchange=value.exchange,
+                preference=int(value.preference), exchange=value.exchange
             )
         elif type == 'SRV':
             entries += make_entry(
@@ -143,9 +144,7 @@ def map_record_to_entries(zone, record: Record):
             )
         elif type == 'CAA':
             entries += make_entry(
-                flag=int(value.flags),
-                tag=value.tag,
-                value=value.value,
+                flag=int(value.flags), tag=value.tag, value=value.value
             )
         else:
             raise Yandex360Exception(f"Unknown record type: {type}")
@@ -162,30 +161,14 @@ def map_record_to_entries(zone, record: Record):
 class Yandex360Provider(BaseProvider):
     SUPPORTS_GEO = False
     SUPPORTS_DYNAMIC = False
-    SUPPORTS = {
-        'A',
-        'AAAA',
-        'CNAME',
-        'MX',
-        'TXT',
-        'SRV',
-        'NS',
-        'CAA',
-    }
+    SUPPORTS = {'A', 'AAAA', 'CNAME', 'MX', 'TXT', 'SRV', 'NS', 'CAA'}
 
     TIMEOUT = 15
     API_BASE = 'https://api360.yandex.net'
 
     _oauth_token = None
 
-    def __init__(
-        self,
-        id,
-        oauth_token,
-
-        *args,
-        **kwargs
-    ):
+    def __init__(self, id, oauth_token, *args, **kwargs):
         self.log = getLogger(f"Yandex360Provider[{id}]")
 
         self._oauth_token = oauth_token
@@ -195,46 +178,83 @@ class Yandex360Provider(BaseProvider):
         super().__init__(id, *args, **kwargs)
 
         self._session = requests.Session()
-        self._session.headers.update({
-            'Authorization': f"OAuth {self._oauth_token}",
-            'User-Agent': f"octodns/{octodns_version} octodns-yandex/{provider_version}",
-        })
+        self._session.headers.update(
+            {
+                'Authorization': f"OAuth {self._oauth_token}",
+                'User-Agent': f"octodns/{octodns_version} octodns-yandex/{provider_version}",
+            }
+        )
 
-    def make_request(self, method, url, data=None, params=None, expected_code=200):
-        resp = self._session.request(method, f"{self.API_BASE}{url}", params=params, json=data, timeout=self.TIMEOUT)
+    def make_request(
+        self, method, url, data=None, params=None, expected_code=200
+    ):
+        resp = self._session.request(
+            method,
+            f"{self.API_BASE}{url}",
+            params=params,
+            json=data,
+            timeout=self.TIMEOUT,
+        )
         if resp.status_code != expected_code:
             raise Yandex360ApiException(resp)
         return resp.json()
 
     def list_orgs(self, page_token=None):
-        return self.make_request('GET', '/directory/v1/org', params={
-            'pageSize': 100,
-            'pageToken': page_token
-        })
+        return self.make_request(
+            'GET',
+            '/directory/v1/org',
+            params={'pageSize': 100, 'pageToken': page_token},
+        )
 
     def list_domains(self, org_id, page=1):
-        return self.make_request('GET', f"/directory/v1/org/{org_id}/domains", params={
-            'perPage': 10,
-            'page': page
-        })
+        return self.make_request(
+            'GET',
+            f"/directory/v1/org/{org_id}/domains",
+            params={'perPage': 10, 'page': page},
+        )
 
     def list_dns_records(self, org_id, domain, page=1):
-        return self.make_request('GET', f"/directory/v1/org/{org_id}/domains/{domain}/dns", params={
-            'perPage': 50,
-            'page': page
-        })
+        return self.make_request(
+            'GET',
+            f"/directory/v1/org/{org_id}/domains/{domain}/dns",
+            params={'perPage': 50, 'page': page},
+        )
 
     def create_dns_record(self, org_id, domain, data):
-        self.log.debug("API Create org_id=%s, domain=%s, data=%s", org_id, domain, data)
-        return self.make_request('POST', f"/directory/v1/org/{org_id}/domains/{domain}/dns", data=data)
+        self.log.debug(
+            "API Create org_id=%s, domain=%s, data=%s", org_id, domain, data
+        )
+        return self.make_request(
+            'POST',
+            f"/directory/v1/org/{org_id}/domains/{domain}/dns",
+            data=data,
+        )
 
     def update_dns_record(self, org_id, domain, record_id, data):
-        self.log.debug("API Update org_id=%s, domain=%s, record_id+%s, data=%s", org_id, domain, record_id, data)
-        return self.make_request('POST', f"/directory/v1/org/{org_id}/domains/{domain}/dns/{record_id}", data=data)
+        self.log.debug(
+            "API Update org_id=%s, domain=%s, record_id+%s, data=%s",
+            org_id,
+            domain,
+            record_id,
+            data,
+        )
+        return self.make_request(
+            'POST',
+            f"/directory/v1/org/{org_id}/domains/{domain}/dns/{record_id}",
+            data=data,
+        )
 
     def delete_dns_record(self, org_id, domain, record_id):
-        self.log.debug("API Delete org_id=%s, domain=%s, record_id=%s", org_id, domain, record_id)
-        return self.make_request('DELETE', f"/directory/v1/org/{org_id}/domains/{domain}/dns/{record_id}")
+        self.log.debug(
+            "API Delete org_id=%s, domain=%s, record_id=%s",
+            org_id,
+            domain,
+            record_id,
+        )
+        return self.make_request(
+            'DELETE',
+            f"/directory/v1/org/{org_id}/domains/{domain}/dns/{record_id}",
+        )
 
     def find_org_id_for_domain(self, domain_name):
         orgs_done = False
@@ -260,7 +280,11 @@ class Yandex360Provider(BaseProvider):
                     for domain in domains_resp['domains']:
                         if domain['name'] != domain_name:
                             continue
-                        self.log.info('find_org_id_for_domain: Found org_id=%s for domain_name=%s', org_id, domain_name)
+                        self.log.info(
+                            'find_org_id_for_domain: Found org_id=%s for domain_name=%s',
+                            org_id,
+                            domain_name,
+                        )
                         return org_id
 
         return None
@@ -270,7 +294,9 @@ class Yandex360Provider(BaseProvider):
 
         records_page, records_pages = 1, 1
         while records_page <= records_pages:
-            domains_resp = self.list_dns_records(org_id, domain_name, page=records_page)
+            domains_resp = self.list_dns_records(
+                org_id, domain_name, page=records_page
+            )
 
             records_pages = domains_resp['pages']
             records_page += 1
@@ -312,7 +338,10 @@ class Yandex360Provider(BaseProvider):
             raise Yandex360Exception("Zone not found")
 
         self.log.debug(
-            '_apply: org_id=%s, domain_name=%s, len(changes)=%d', org_id, domain_name, len(changes)
+            '_apply: org_id=%s, domain_name=%s, len(changes)=%d',
+            org_id,
+            domain_name,
+            len(changes),
         )
 
         delete, create, update = [], [], []
@@ -321,10 +350,15 @@ class Yandex360Provider(BaseProvider):
             if change.existing is None:
                 create.append(change)
             else:
-                records_to_search[(change.existing._type, _ya360_name(change.existing.name))] = []
+                _key = (
+                    change.existing._type,
+                    _ya360_name(change.existing.name),
+                )
+                records_to_search[_key] = []
                 if change.new is None:
                     delete.append(change)
-                elif change.existing._type == 'CAA':  # XXX: CAA update is broken
+                elif change.existing._type == 'CAA':
+                    # XXX: CAA update is broken
                     delete.append(Delete(change.existing))
                     create.append(Create(change.existing))
                 else:
@@ -333,14 +367,16 @@ class Yandex360Provider(BaseProvider):
         # Search for record_ids by (type, name) tuples
         entries = self.collect_zone_entries(org_id, domain_name)
         for entry in entries:
-            e = records_to_search.get((entry['type'], entry['name']), None)
+            _key = (entry['type'], entry['name'])
+            e = records_to_search.get(_key, None)
             if e is None:
                 continue
-            records_to_search[(entry['type'], entry['name'])].append(entry['recordId'])
+            records_to_search[_key].append(entry['recordId'])
 
         # Delete found records
         for change in delete:
-            for record_id in records_to_search.get((change.existing._type, _ya360_name(change.existing.name)), []):
+            _key = (change.existing._type, _ya360_name(change.existing.name))
+            for record_id in records_to_search.get(_key, []):
                 self.delete_dns_record(org_id, domain_name, record_id)
 
         # Create new records
@@ -350,13 +386,16 @@ class Yandex360Provider(BaseProvider):
 
         # Apply changes: update (if possible) or create/delete
         for change in update:
-            it = iter(records_to_search.get((change.existing._type, _ya360_name(change.existing.name)), []))
+            _key = (change.existing._type, _ya360_name(change.existing.name))
+            it = iter(records_to_search.get(_key, []))
 
             # Update entries while there is some or create new ones
             for entry in map_record_to_entries(zone, change.new):
                 record_id = next(it, None)
                 if record_id is not None:
-                    self.update_dns_record(org_id, domain_name, record_id, entry)
+                    self.update_dns_record(
+                        org_id, domain_name, record_id, entry
+                    )
                 else:
                     self.create_dns_record(org_id, domain_name, entry)
 

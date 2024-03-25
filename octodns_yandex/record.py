@@ -1,4 +1,4 @@
-from octodns.record import ValueMixin, Record
+from octodns.record import Record, ValueMixin
 from octodns.record.target import _TargetValue
 
 

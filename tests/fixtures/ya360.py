@@ -11,7 +11,7 @@ def make_paginated_resp(page, pages, per_page, total, **kwargs):
         'pages': pages,
         'perPage': per_page,
         'total': total,
-        **kwargs
+        **kwargs,
     }
 
 
@@ -22,7 +22,7 @@ STUB_ORG_1 = {
     'phone': '',
     'fax': '',
     'language': 'ru',
-    'subscriptionPlan': 'free'
+    'subscriptionPlan': 'free',
 }
 
 STUB_ORG_2 = {
@@ -32,7 +32,7 @@ STUB_ORG_2 = {
     'phone': '',
     'fax': '',
     'language': 'ru',
-    'subscriptionPlan': 'free'
+    'subscriptionPlan': 'free',
 }
 
 
@@ -45,28 +45,19 @@ STUB_DOMAIN_1 = {
     'verified': True,
     'status': {
         'name': 'example.com',
-        'spf': {
-          'match': False,
-          'value': 'v=spf1 mx a -all'
-        },
-        'mx': {
-          'match': False,
-          'value': 'host=mx.example.com priority=0'
-        },
-        'ns': {
-          'match': False,
-          'value': 'ns1.example.com\nns2.example.com'
-        },
+        'spf': {'match': False, 'value': 'v=spf1 mx a -all'},
+        'mx': {'match': False, 'value': 'host=mx.example.com priority=0'},
+        'ns': {'match': False, 'value': 'ns1.example.com\nns2.example.com'},
         'dkim': {
-          'match': True,
-          'value': 'v=DKIM1; k=rsa; t=s; p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDK1bS'
-                   '7mNooVu1/GB8FKDwp3gxjzFCUeAz60IM7KOIsOhqFiVqkvr7zV35C5FLwsx6buJbpl'
-                   'AcgTjvLzKwgDfldUsStjkmIxMHNFY9uXF/+4Go/wXLpe5SwAsXdmAe7IOeu27Issyr'
-                   'PJ74WYE+3iAeByChXYIcY7oHEthcfwlQk8wIDAQAB'
+            'match': True,
+            'value': 'v=DKIM1; k=rsa; t=s; p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDK1bS'
+            '7mNooVu1/GB8FKDwp3gxjzFCUeAz60IM7KOIsOhqFiVqkvr7zV35C5FLwsx6buJbpl'
+            'AcgTjvLzKwgDfldUsStjkmIxMHNFY9uXF/+4Go/wXLpe5SwAsXdmAe7IOeu27Issyr'
+            'PJ74WYE+3iAeByChXYIcY7oHEthcfwlQk8wIDAQAB',
         },
         'lastCheck': '2024-03-23T07:39:41.945Z',
-        'lastAdded': '2024-03-20T14:23:46.931Z'
-    }
+        'lastAdded': '2024-03-20T14:23:46.931Z',
+    },
 }
 STUB_DOMAIN_2 = {
     'name': 'ya360.example.com',
@@ -74,7 +65,7 @@ STUB_DOMAIN_2 = {
     'mx': True,
     'delegated': True,
     'master': False,
-    'verified': True
+    'verified': True,
 }
 
 # Every value should be a set of entries resulting in single Record
@@ -86,14 +77,14 @@ STUB_ENTRIES = {
             'type': 'A',
             'name': 'a',
             'ttl': 600,
-            'address': '127.0.0.1'
+            'address': '127.0.0.1',
         },
         {
             'recordId': 2,
             'type': 'A',
             'name': 'a',
             'ttl': 600,
-            'address': '127.0.0.2'
+            'address': '127.0.0.2',
         },
     ],
     'A_single': [
@@ -102,8 +93,8 @@ STUB_ENTRIES = {
             'type': 'A',
             'name': 'a1',
             'ttl': 600,
-            'address': '127.0.0.1'
-        },
+            'address': '127.0.0.1',
+        }
     ],
     'AAAA': [
         {
@@ -111,14 +102,18 @@ STUB_ENTRIES = {
             'type': 'AAAA',
             'name': 'aaaa',
             'ttl': 300,
-            'address': str(Ipv6Value('2001:0db8:11a3:09d7:1f34:8a2e:07a0:765d'))
+            'address': str(
+                Ipv6Value('2001:0db8:11a3:09d7:1f34:8a2e:07a0:765d')
+            ),
         },
         {
             'recordId': 5,
             'type': 'AAAA',
             'name': 'aaaa',
             'ttl': 350,
-            'address': str(Ipv6Value('2001:0db8:11a3:09d7:1f34:8a2e:07a0:766d'))
+            'address': str(
+                Ipv6Value('2001:0db8:11a3:09d7:1f34:8a2e:07a0:766d')
+            ),
         },
     ],
     'AAAA_triple': [
@@ -127,21 +122,27 @@ STUB_ENTRIES = {
             'type': 'AAAA',
             'name': 'aaaa3',
             'ttl': 300,
-            'address': str(Ipv6Value('2001:0db8:11a3:09d7:1f34:8a2e:07a0:765d'))
+            'address': str(
+                Ipv6Value('2001:0db8:11a3:09d7:1f34:8a2e:07a0:765d')
+            ),
         },
         {
             'recordId': 7,
             'type': 'AAAA',
             'name': 'aaaa3',
             'ttl': 350,
-            'address': str(Ipv6Value('2001:0db8:11a3:09d7:1f34:8a2e:07a0:766d'))
+            'address': str(
+                Ipv6Value('2001:0db8:11a3:09d7:1f34:8a2e:07a0:766d')
+            ),
         },
         {
             'recordId': 8,
             'type': 'AAAA',
             'name': 'aaaa3',
             'ttl': 350,
-            'address': str(Ipv6Value('2001:0db8:11a3:09d7:1f34:8a2e:07a0:767d'))
+            'address': str(
+                Ipv6Value('2001:0db8:11a3:09d7:1f34:8a2e:07a0:767d')
+            ),
         },
     ],
     'AAAA_second_record': [
@@ -150,17 +151,17 @@ STUB_ENTRIES = {
             'type': 'AAAA',
             'name': 'a',
             'ttl': 600,
-            'address': '::1'
+            'address': '::1',
         }
     ],
-    'CNAME':[
+    'CNAME': [
         {
             'recordId': 10,
             'type': 'CNAME',
             'name': 'cname',
             'ttl': 600,
-            'target': 'example.com.'
-        },
+            'target': 'example.com.',
+        }
     ],
     'CNAME_mail': [
         {
@@ -168,8 +169,8 @@ STUB_ENTRIES = {
             'type': 'CNAME',
             'name': 'mail',
             'ttl': 21600,
-            'target': 'domain.mail.yandex.net.'
-        },
+            'target': 'domain.mail.yandex.net.',
+        }
     ],
     'MX': [
         {
@@ -178,8 +179,8 @@ STUB_ENTRIES = {
             'name': '@',
             'ttl': 21600,
             'exchange': 'mx.yandex.net.',
-            'preference': 10
-        },
+            'preference': 10,
+        }
     ],
     'TXT': [
         {
@@ -187,8 +188,8 @@ STUB_ENTRIES = {
             'type': 'TXT',
             'name': 'txt',
             'ttl': 600,
-            'text': 'Hello world'
-        },
+            'text': 'Hello world',
+        }
     ],
     'TXT_dkim': [
         {
@@ -196,11 +197,11 @@ STUB_ENTRIES = {
             'type': 'TXT',
             'name': 'mail._domainkey',
             'ttl': 21600,
-            'text': 'v=DKIM1; k=rsa\\\\; t=s; p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQD'
-                    'K1bS7mNooVu1/GB8FKDwp3gxjzFCUeAz60IM7KOIsOhqFiVqkvr7zV35C5FLwsx6bu'
-                    'JbplAcgTjvLzKwgDfldUsStjkmIxMHNFY9uXF/+4Go/wXLpe5SwAsXdmAe7IOeu27I'
-                    'ssyrPJ74WYE+3iAeByChXYIcY7oHEthcfwlQk8wIDAQAB'
-        },
+            'text': 'v=DKIM1; k=rsa\\\\; t=s; p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQ'
+            'KBgQDK1bS7mNooVu1/GB8FKDwp3gxjzFCUeAz60IM7KOIsOhqFiVqkvr7zV35C5FLwsx6'
+            'buJbplAcgTjvLzKwgDfldUsStjkmIxMHNFY9uXF/+4Go/wXLpe5SwAsXdmAe7IOeu27Is'
+            'syrPJ74WYE+3iAeByChXYIcY7oHEthcfwlQk8wIDAQAB',
+        }
     ],
     'TXT_spf': [
         {
@@ -208,8 +209,8 @@ STUB_ENTRIES = {
             'type': 'TXT',
             'name': '@',
             'ttl': 21600,
-            'text': 'v=spf1 redirect=_spf.yandex.net'
-        },
+            'text': 'v=spf1 redirect=_spf.yandex.net',
+        }
     ],
     'SRV': [
         {
@@ -220,8 +221,8 @@ STUB_ENTRIES = {
             'target': 'backend.example.com.',
             'port': 8080,
             'priority': 10,
-            'weight': 70
-        },
+            'weight': 70,
+        }
     ],
     'NS': [
         {
@@ -229,14 +230,14 @@ STUB_ENTRIES = {
             'type': 'NS',
             'name': 'ns',
             'ttl': 600,
-            'target': 'ns1.example.com.'
+            'target': 'ns1.example.com.',
         },
         {
             'recordId': 18,
             'type': 'NS',
             'name': 'ns',
             'ttl': 600,
-            'target': 'ns2.example.com.'
+            'target': 'ns2.example.com.',
         },
     ],
     'CAA': [
@@ -247,7 +248,7 @@ STUB_ENTRIES = {
             'ttl': 600,
             'flag': 0,
             'tag': 'issue',
-            'value': 'ca.example.net'
-        },
-    ]
+            'value': 'ca.example.net',
+        }
+    ],
 }
