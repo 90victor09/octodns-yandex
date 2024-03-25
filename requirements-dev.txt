@@ -12,6 +12,8 @@ importlib_metadata==7.1.0
 iniconfig==2.0.0
 isort==5.13.2
 jaraco.classes==3.3.1
+jaraco.context==4.3.0
+jaraco.functools==4.0.0
 jeepney==0.8.0
 keyring==25.0.0
 markdown-it-py==3.0.0
@@ -26,7 +28,7 @@ platformdirs==4.2.0
 pluggy==1.4.0
 pyflakes==3.2.0
 pyproject_hooks==1.0.0
-pytest-cov==4.1.0
+pytest-cov==5.0.0
 pytest==8.1.1
 pytest_network==0.0.1
 readme_renderer==43.0

@@ -20,12 +20,7 @@ def version():
 
 description, long_description = descriptions()
 
-tests_require = (
-    'pytest',
-    'pytest-cov',
-    'pytest-network',
-    # TODO: other test-time requirements
-)
+tests_require = ('pytest', 'pytest-cov', 'pytest-network')
 
 setup(
     author='Victor Scherbackov',
@@ -55,6 +50,6 @@ setup(
     packages=find_packages(),
     python_requires='>=3.6',
     tests_require=tests_require,
-    url='https://github.com/octodns/octodns-yandex',
+    url='https://github.com/90victor09/octodns-yandex',
     version=version(),
 )

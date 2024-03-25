@@ -1,11 +1,6 @@
-## TODO: v0.0.1 - 20??-??-?? - Moving
+## v0.0.1 - 2024-03-25 - Initial release
 
-#### Nothworthy Changes
+#### Changes
 
-* Initial extraction of YandexCloudProvider from octoDNS core
-
-TODO: anything else
-
-#### Stuff
-
-TODO: anything else
+* Initial implementation of YandexCloudProvider
+* Initial implementation of Yandex360Provider
