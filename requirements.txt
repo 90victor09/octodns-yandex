@@ -16,6 +16,7 @@ protobuf==4.25.3
 pycparser==2.21
 python-dateutil==2.9.0.post0
 requests==2.31.0
+setuptools
 six==1.16.0
 urllib3==2.2.1
-yandexcloud==0.265.0
+yandexcloud==0.267.0

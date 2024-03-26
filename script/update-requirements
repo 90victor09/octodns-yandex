@@ -30,10 +30,18 @@ with TemporaryDirectory() as tmpdir:
     frozen = check_output([join(tmpdir, 'bin', 'pip'), 'freeze'])
     frozen = set(frozen.decode('utf-8').strip().split('\n'))
 
+    setuptools = set((x for x in frozen if x.startswith('setuptools')))
+    frozen -= setuptools
+    frozen.add('setuptools')
+
     # dev additions
     check_call([join(tmpdir, 'bin', 'pip'), 'install', '.[dev]'])
     dev_frozen = check_output([join(tmpdir, 'bin', 'pip'), 'freeze'])
-    dev_frozen = set(dev_frozen.decode('utf-8').strip().split('\n')) - frozen
+    dev_frozen = (
+        set(dev_frozen.decode('utf-8').strip().split('\n'))
+        - frozen
+        - setuptools
+    )
 
 # pip installs the module itself along with deps so we need to get that out of
 # our list by finding the thing that was file installed during dev
