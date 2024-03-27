@@ -42,7 +42,7 @@ setup(
         ),
         'test': tests_require,
     },
-    install_requires=('octodns>=1.0.0', 'yandexcloud==0.265.0'),
+    install_requires=('octodns>=1.0.0', 'yandexcloud>=0.270.0'),
     license='MIT',
     long_description=long_description,
     long_description_content_type='text/markdown',
