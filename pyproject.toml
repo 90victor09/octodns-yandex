@@ -3,6 +3,9 @@ line-length=80
 skip-string-normalization=true
 skip-magic-trailing-comma=true
 
+[tool.coverage.run]
+omit=["octodns_yandex/version.py"]
+
 [tool.isort]
 profile = "black"
 known_first_party="octodns_yandex"

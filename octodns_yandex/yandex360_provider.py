@@ -4,13 +4,12 @@ from logging import getLogger
 
 import requests
 
-from octodns import __VERSION__ as octodns_version
 from octodns.idna import idna_encode
 from octodns.provider import ProviderException
 from octodns.provider.base import BaseProvider
 from octodns.record import Create, Delete, Record
 
-from octodns_yandex.version import __VERSION__ as provider_version
+from octodns_yandex.version import get_base_user_agent
 
 
 class Yandex360Exception(ProviderException):
@@ -181,7 +180,7 @@ class Yandex360Provider(BaseProvider):
         self._session.headers.update(
             {
                 'Authorization': f"OAuth {self._oauth_token}",
-                'User-Agent': f"octodns/{octodns_version} octodns-yandex/{provider_version}",
+                'User-Agent': get_base_user_agent(),
             }
         )
 

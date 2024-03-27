@@ -7,12 +7,11 @@ from yandex.cloud.cdn.v1.resource_service_pb2 import (
 )
 from yandex.cloud.cdn.v1.resource_service_pb2_grpc import ResourceServiceStub
 
-from octodns import __VERSION__ as octodns_version
 from octodns.record import Record
 from octodns.source.base import BaseSource
 
 from octodns_yandex.auth import _AuthMixin
-from octodns_yandex.version import __VERSION__ as provider_version
+from octodns_yandex.version import get_user_agent
 
 
 class YandexCloudCDNSource(_AuthMixin, BaseSource):
@@ -52,8 +51,7 @@ class YandexCloudCDNSource(_AuthMixin, BaseSource):
         super().__init__(id, *args, **kwargs)
 
         self.sdk = yandexcloud.SDK(
-            user_agent=f"octodns/{octodns_version} octodns-yandex/{provider_version}",
-            **self.auth_kwargs,
+            user_agent=get_user_agent(), **self.auth_kwargs
         )
         self.cdn_service = self.sdk.client(ResourceServiceStub)
 

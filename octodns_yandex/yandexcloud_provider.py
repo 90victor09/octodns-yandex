@@ -12,7 +12,6 @@ from yandex.cloud.dns.v1.dns_zone_service_pb2 import (
 )
 from yandex.cloud.dns.v1.dns_zone_service_pb2_grpc import DnsZoneServiceStub
 
-from octodns import __VERSION__ as octodns_version
 from octodns.idna import idna_decode
 from octodns.provider.base import BaseProvider
 from octodns.record import Record
@@ -20,7 +19,7 @@ from octodns.record import Record
 from octodns_yandex.auth import _AuthMixin
 from octodns_yandex.exception import YandexCloudException
 from octodns_yandex.record import YandexCloudAnameRecord
-from octodns_yandex.version import __VERSION__ as provider_version
+from octodns_yandex.version import get_user_agent
 
 
 def _aname_type_map(rset):
@@ -146,8 +145,7 @@ class YandexCloudProvider(_AuthMixin, BaseProvider):
         super().__init__(id, *args, **kwargs)
 
         self.sdk = yandexcloud.SDK(
-            user_agent=f"octodns/{octodns_version} octodns-yandex/{provider_version}",
-            **self.auth_kwargs,
+            user_agent=get_user_agent(), **self.auth_kwargs
         )
         self.dns_service = self.sdk.client(DnsZoneServiceStub)
 

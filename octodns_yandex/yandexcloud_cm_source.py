@@ -12,13 +12,12 @@ from yandex.cloud.certificatemanager.v1.certificate_service_pb2_grpc import (
     CertificateServiceStub,
 )
 
-from octodns import __VERSION__ as octodns_version
 from octodns.record import Record
 from octodns.source.base import BaseSource
 
 from octodns_yandex.auth import _AuthMixin
 from octodns_yandex.exception import YandexCloudConfigException
-from octodns_yandex.version import __VERSION__ as provider_version
+from octodns_yandex.version import get_user_agent
 
 
 class YandexCloudCMSource(_AuthMixin, BaseSource):
@@ -60,8 +59,7 @@ class YandexCloudCMSource(_AuthMixin, BaseSource):
         super().__init__(id, *args, **kwargs)
 
         self.sdk = yandexcloud.SDK(
-            user_agent=f"octodns/{octodns_version} octodns-yandex/{provider_version}",
-            **self.auth_kwargs,
+            user_agent=get_user_agent(), **self.auth_kwargs
         )
         self.cm_service = self.sdk.client(CertificateServiceStub)
 
