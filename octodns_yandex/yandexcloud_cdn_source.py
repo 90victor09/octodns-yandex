@@ -66,15 +66,10 @@ class YandexCloudCDNSource(_AuthMixin, BaseSource):
         return self._provider_cname
 
     def process_resource(self, zone, resource, lenient=False):
-        matched_domains = list(
-            filter(
-                lambda domain: zone.owns('CNAME', domain),
-                [resource.cname, *resource.secondary_hostnames],
-            )
+        matched_domains = filter(
+            lambda domain: zone.owns('CNAME', domain),
+            [resource.cname, *resource.secondary_hostnames],
         )
-
-        if len(matched_domains) == 0:
-            return
 
         for fqdn in matched_domains:
             if fqdn[-1] != '.':

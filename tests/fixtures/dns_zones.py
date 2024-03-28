@@ -5,10 +5,12 @@ from yandex.cloud.dns.v1.dns_zone_pb2 import (
     PublicVisibility,
 )
 
-STUB_ZONE_NAME = "example.com."
-
-STUB_NETWORK_ID = 'bie1YohT6ahmicoshohb'
-STUB_FOLDER_ID = "oogiy4eivee6faegouRu"
+from tests.fixtures import (
+    STUB_FOLDER_ID,
+    STUB_IDNA_ZONE_NAME,
+    STUB_NETWORK_ID,
+    STUB_ZONE_NAME,
+)
 
 STUB_ZONE_1 = DnsZone(
     id='dnsisei4peetahsak6oh',
@@ -37,8 +39,6 @@ STUB_ZONE_PUBLIC = DnsZone(
     public_visibility=PublicVisibility(),
 )
 
-
-STUB_IDNA_ZONE_NAME = "xn--e1aybc.xn--p1ai."
 
 STUB_IDNA_ZONE = DnsZone(
     id='dnshahmeep0hei5aighe',
