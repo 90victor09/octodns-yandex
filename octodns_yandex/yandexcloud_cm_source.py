@@ -72,6 +72,7 @@ class YandexCloudCMSource(_AuthMixin, BaseSource):
         ):
             return
 
+        new_records = {}
         for challenge in cert.challenges:
             if challenge.type != ChallengeType.DNS:
                 continue
@@ -83,24 +84,30 @@ class YandexCloudCMSource(_AuthMixin, BaseSource):
             if not zone.owns(self.record_type, challenge_record.name):
                 continue
 
-            new_record = Record.new(
-                zone,
-                zone.hostname_from_fqdn(challenge_record.name),
-                data={
-                    'type': challenge_record.type,
-                    'ttl': self.record_ttl,
-                    'value': challenge_record.value,
-                },
-                source=self,
-                lenient=lenient,
-            )
+            hostname = zone.hostname_from_fqdn(challenge_record.name)
+            previous_values = []
 
             # If there is already same record exists - skip
             # (possible when requesting cert for domain and its wildcard)
-            if new_record in zone.records:
-                continue
+            if new_records.get(hostname, None):
+                if challenge_record.type == 'CNAME':
+                    continue
 
-            zone.add_record(new_record)
+                prev_data = new_records[hostname].data
+                previous_values = prev_data.get('values', [prev_data['value']])
+
+            data = {'type': challenge_record.type, 'ttl': self.record_ttl}
+            if challenge_record.type == 'CNAME':
+                data['value'] = challenge_record.value
+            else:
+                data['values'] = [*previous_values, challenge_record.value]
+
+            new_records[hostname] = Record.new(
+                zone, hostname, data=data, source=self, lenient=lenient
+            )
+
+        for k, record in new_records.items():
+            zone.add_record(record)
 
     def populate(self, zone, target=False, lenient=False):
         self.log.debug(
