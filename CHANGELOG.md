@@ -1,3 +1,11 @@
+## v0.0.3 - 2024-03-29 - CM & CDN sources
+
+#### Changes
+
+* Added yandexcloud sdk version to user-agent string
+* Added source for Yandex Cloud Certificate Manager (`octodns_yandex.YandexCloudCMSource`)
+* Added source for Yandex Cloud CDN (`octodns_yandex.YandexCloudCDNSource`)
+
 ## v0.0.2 - 2024-03-27 - Dependencies fixes
 
 #### Changes

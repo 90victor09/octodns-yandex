@@ -1,3 +1,16 @@
+[![PyPI Version][pypi-image]][pypi-url]
+[![Build Status][build-image]][build-url]
+[![License][license-image]][license-url]
+
+<!-- Badges -->
+
+[pypi-image]: https://img.shields.io/pypi/v/octodns-yandex
+[pypi-url]: https://pypi.org/project/octodns-yandex/
+[build-image]: https://github.com/90victor09/octodns-yandex/actions/workflows/main.yml/badge.svg
+[build-url]: https://github.com/90victor09/octodns-yandex/actions/workflows/main.yml
+[license-image]: https://img.shields.io/github/license/90victor09/octodns-yandex.svg
+[license-url]: https://github.com/90victor09/octodns-yandex/blob/master/LICENSE
+
 ## YandexCloud DNS provider for octoDNS
 
 An (unofficial) [octoDNS](https://github.com/octodns/octodns/) provider that targets [Yandex Cloud DNS](https://cloud.yandex.com/en/services/dns).
@@ -20,24 +33,25 @@ Pinning specific versions or SHAs is recommended to avoid unplanned upgrades.
 
 ```
 # Start with the latest versions and don't just copy what's here
-octodns==0.9.14
-octodns-yandex==0.0.1
+octodns==1.6.1
+octodns-yandex==0.0.3
 ```
 
 ##### SHAs
 
 ```
 # Start with the latest/specific versions and don't just copy what's here
--e git+https://git@github.com/octodns/octodns.git@9da19749e28f68407a1c246dfdf65663cdc1c422#egg=octodns
--e git+https://git@github.com/90victor09/octodns-yandex.git@ec9661f8b335241ae4746eea467a8509205e6a30#egg=octodns_yandex
+-e git+https://git@github.com/octodns/octodns.git@384ce2018291f15c1d021a70f46820315af478cc#egg=octodns
+-e git+https://git@github.com/90victor09/octodns-yandex.git@0067b545710050b7e4f85471bbe7bfe66a6a0c10#egg=octodns_yandex
 ```
 
 ### Configuration
 
 #### Yandex Cloud Provider
 
-Required role:
-- `dns.editor`
+Required roles:
+- `dns.editor` - for dump and sync
+- `dns.viewer` - for dump only
 
 ```yaml
 providers:
@@ -75,6 +89,48 @@ providers:
     #  private_key: env/YC_SA_KEY_PRIVATE_KEY
 ```
 
+#### Yandex Cloud CM Source
+
+Provides records for ACME DNS challenges.
+
+Required role:
+- `certificate-manager.viewer`
+
+```yaml
+providers:
+  yandexcloud_cm:
+    class: octodns_yandex.YandexCloudCMSource
+    # Cloud folder id to look up DNS zones
+    folder_id: a1bc...
+    # Challenge type to use: CNAME or TXT
+    record_type: CNAME
+    # Challenge records TTL
+    record_ttl: 3600
+
+    # Auth options are the same as for octodns_yandex.YandexCloudProvider
+    auth_type: yc-cli
+```
+
+#### Yandex Cloud CDN Source
+
+Provides CNAME records for CDN.
+
+Required role:
+- `cdn.viewer`
+
+```yaml
+providers:
+  yandexcloud_cdn:
+    class: octodns_yandex.YandexCloudCDNSource
+    # Cloud folder id to look up DNS zones
+    folder_id: a1bc...
+    # CDN records TTL
+    record_ttl: 3600
+
+    # Auth options are the same as for octodns_yandex.YandexCloudProvider
+    auth_type: yc-cli
+```
+
 #### Yandex 360
 
 You can obtain OAuth token through existing application:  
@@ -97,10 +153,12 @@ providers:
 
 #### Records
 
-| What                  | Supported records                                                     |
-|-----------------------|-----------------------------------------------------------------------|
-| `YandexCloudProvider` | `A`, `AAAA`, `CAA`, `CNAME`, `MX`, `NS`, `PTR`, `SRV`, `TXT`, `ANAME` |
-| `Yandex360Provider`   | `A`, `AAAA`, `CAA`, `CNAME`, `MX`, `NS`, `SRV`, `TXT`                 |
+| What                   | Supported records                                                     |
+|------------------------|-----------------------------------------------------------------------|
+| `YandexCloudProvider`  | `A`, `AAAA`, `CAA`, `CNAME`, `MX`, `NS`, `PTR`, `SRV`, `TXT`, `ANAME` |
+| `Yandex360Provider`    | `A`, `AAAA`, `CAA`, `CNAME`, `MX`, `NS`, `SRV`, `TXT`                 |
+| `YandexCloudCMSource`  | `CNAME`, `TXT`                                                        |
+| `YandexCloudCDNSource` | `CNAME`                                                               |
 
 #### Root NS Records
 

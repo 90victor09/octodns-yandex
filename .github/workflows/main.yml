@@ -1,4 +1,4 @@
-name: octoDNS YandexCloudProvider
+name: Tests
 on: [pull_request, workflow_dispatch]
 
 jobs:

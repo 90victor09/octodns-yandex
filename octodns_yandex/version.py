@@ -3,7 +3,7 @@ from importlib.metadata import PackageNotFoundError, version
 from octodns import __VERSION__ as octodns_version
 
 # TODO: remove __VERSION__ with the next major version.py release
-__version__ = __VERSION__ = '0.0.2'
+__version__ = __VERSION__ = '0.0.3'
 
 try:
     yandexcloud_version = version("yandexcloud")
